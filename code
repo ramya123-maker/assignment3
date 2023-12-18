@@ -1,0 +1,181 @@
+// UserProfile.js
+import React from 'react';
+
+const UserProfile = ({ user }) => {
+  return (
+    <div>
+      <h2>{user.username}'s Profile</h2>
+      <p>Email: {user.email}</p>
+      {/* Add more profile details */}
+    </div>
+  );
+};
+
+export default UserProfile;
+// FriendConnection.js
+import React from 'react';
+
+const FriendConnection = ({ friendList }) => {
+  return (
+    <div>
+      <h2>Friend List</h2>
+      <ul>
+        {friendList.map((friend) => (
+          <li key={friend.id}>{friend.username}</li>
+        ))}
+      </ul>
+    </div>
+  );
+};
+
+export default FriendConnection;
+// Post.js
+import React from 'react';
+
+const Post = ({ post }) => {
+  return (
+    <div>
+      <p>{post.content}</p>
+      <small>Posted by: {post.username}</small>
+    </div>
+  );
+};
+
+export default Post;
+// Feed.js
+import React from 'react';
+import Post from './Post';
+
+const Feed = ({ posts }) => {
+  return (
+    <div>
+      <h2>Feed</h2>
+      {posts.map((post) => (
+        <Post key={post.id} post={post} />
+      ))}
+    </div>
+  );
+};
+
+export default Feed;
+// server.js
+const express = require('express');
+const bodyParser = require('body-parser');
+const mongoose = require('mongoose');
+const app = express();
+const port = 3001;
+
+app.use(bodyParser.json());
+
+mongoose.connect('mongodb://localhost/social-media-app', {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+});
+
+// Include routes
+const userRoutes = require('./routes/userRoutes');
+const postRoutes = require('./routes/postRoutes');
+const friendRoutes = require('./routes/friendRoutes');
+
+app.use('/api/users', userRoutes);
+app.use('/api/posts', postRoutes);
+app.use('/api/friends', friendRoutes);
+
+app.listen(port, () => {
+  console.log(`Server is running on port ${port}`);
+});
+// routes/userRoutes.js
+const express = require('express');
+const router = express.Router();
+const UserController = require('../controllers/userController');
+
+router.get('/', UserController.getAllUsers);
+router.get('/:id', UserController.getUserById);
+router.post('/', UserController.createUser);
+// Add more routes as needed
+
+module.exports = router;
+// controllers/userController.js
+const UserModel = require('../models/UserModel');
+
+exports.getAllUsers = async (req, res) => {
+  try {
+    const users = await UserModel.find();
+    res.json(users);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+exports.getUserById = async (req, res) => {
+  try {
+    const user = await UserModel.findById(req.params.id);
+    res.json(user);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+exports.createUser = async (req, res) => {
+  try {
+    const newUser = new UserModel(req.body);
+    const savedUser = await newUser.save();
+    res.json(savedUser);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+// Implement more controller methods as needed
+// routes/friendRoutes.js
+const express = require('express');
+const router = express.Router();
+const FriendController = require('../controllers/friendController');
+
+router.post('/add', FriendController.addFriend);
+// Add more routes as needed
+
+module.exports = router;
+// controllers/friendController.js
+const UserModel = require('../models/UserModel');
+
+exports.addFriend = async (req, res) => {
+  try {
+    const { userId, friendId } = req.body;
+
+    // Add friend to user's friend list
+    await UserModel.findByIdAndUpdate(userId, { $push: { friends: friendId } });
+
+    // Add user to friend's friend list
+    await UserModel.findByIdAndUpdate(friendId, { $push: { friends: userId } });
+
+    res.json({ message: 'Friend added successfully' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+// Implement more controller methods as needed
+// models/UserModel.js
+const mongoose = require('mongoose');
+
+const userSchema = new mongoose.Schema({
+  username: { type: String, required: true },
+  email: { type: String, required: true },
+  friends: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  // Add more fields as needed
+});
+
+const UserModel = mongoose.model('User', userSchema);
+
+module.exports = UserModel;
+// models/PostModel.js
+const mongoose = require('mongoose');
+
+const postSchema = new mongoose.Schema({
+  content: { type: String, required: true },
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  // Add more fields as needed
+});
+
+const PostModel = mongoose.model('Post', postSchema);
+
+module.exports = PostModel;
